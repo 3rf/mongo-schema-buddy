@@ -7,7 +7,30 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"reflect"
+	"time"
 )
+
+type BsonType struct {
+	Name string
+	Id   uint
+}
+
+//TODO refactor this to a fucntion, so that it works
+//     with mintype and js w/ scope and other edge cases
+var typeMap = map[reflect.Type]BsonType{
+	reflect.TypeOf(0.1):                    {"Double", 1},
+	reflect.TypeOf(""):                     {"String", 2},
+	reflect.TypeOf(bson.Binary{}):          {"Binary", 5},
+	reflect.TypeOf(bson.NewObjectId()):     {"ObjectId", 7},
+	reflect.TypeOf(true):                   {"Boolean", 8},
+	reflect.TypeOf(time.Time{}):            {"Date", 9},
+	reflect.TypeOf(nil):                    {"Null", 10},
+	reflect.TypeOf(bson.RegEx{}):           {"RegEx", 11},
+	reflect.TypeOf(int(1)):                 {"Integer", 16}, //TODO INTS ARE WEIRDDD
+	reflect.TypeOf(int32(1)):               {"Integer32", 16},
+	reflect.TypeOf(bson.MongoTimestamp(1)): {"Timestamp", 17},
+	reflect.TypeOf(int64(1)):               {"Integer64", 18},
+}
 
 type DocCounter struct {
 	Name     string
@@ -99,7 +122,7 @@ func (self *DocCounter) AddDocument(doc bson.M) {
 
 func (self *FieldCounter) stringToBuffer(strBuf *bytes.Buffer) {
 	for typeName, _ := range self.TypeCounter {
-		strBuf.WriteString(fmt.Sprintf("%s ", typeName))
+		strBuf.WriteString(fmt.Sprintf("%s ", typeMap[typeName].Name))
 	}
 	if self.ArraySubCounter != nil {
 		strBuf.WriteString("[ ")
