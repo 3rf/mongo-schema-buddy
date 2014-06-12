@@ -32,6 +32,20 @@ var typeMap = map[reflect.Type]BsonType{
 	reflect.TypeOf(int64(1)):               {"Integer64", 18},
 }
 
+func ToBsonType(val interface{}) BsonType {
+    goType := reflect.TypeOf(val)
+    switch goType{
+    case reflect.TypeOf(bson.MinKey):
+        if (reflect.ValueOf(val)).Int() == int64(bson.MinKey) {
+            return BsonType{"MinKey", 255}
+        } else {
+            return BsonType{"MaxKey", 127}
+        }
+    default:
+        return typeMap[goType]
+    }
+}
+
 type DocCounter struct {
 	Name     string
 	Counter  int64
@@ -43,7 +57,7 @@ type FieldCounter struct {
 	Name               string
 	IsArray            bool
 	Counter            int64
-	TypeCounter        map[reflect.Type]int64
+	TypeCounter        map[BsonType]int64
 	ArraySubCounter    *FieldCounter
 	SubDocumentCounter *DocCounter
 }
@@ -51,14 +65,14 @@ type FieldCounter struct {
 func NewFieldCounter(name string) *FieldCounter {
 	fc := FieldCounter{
 		Name:        name,
-		TypeCounter: make(map[reflect.Type]int64)}
+		TypeCounter: make(map[BsonType]int64)}
 	return &fc
 }
 
 func NewArrayCounter() *FieldCounter {
 	fc := FieldCounter{
 		IsArray:     true,
-		TypeCounter: make(map[reflect.Type]int64)}
+		TypeCounter: make(map[BsonType]int64)}
 	return &fc
 }
 
@@ -73,7 +87,7 @@ func (self *FieldCounter) AddValue(val interface{}) {
 		self.AddSubDocValue(val.(bson.M))
 		return
 	}
-	self.TypeCounter[valType] += 1
+	self.TypeCounter[ToBsonType(val)] += 1
 }
 
 func (self *FieldCounter) AddArrayValue(valArray []interface{}) {
@@ -122,7 +136,7 @@ func (self *DocCounter) AddDocument(doc bson.M) {
 
 func (self *FieldCounter) stringToBuffer(strBuf *bytes.Buffer) {
 	for typeName, _ := range self.TypeCounter {
-		strBuf.WriteString(fmt.Sprintf("%s ", typeMap[typeName].Name))
+		strBuf.WriteString(fmt.Sprintf("%s ", typeName.Name))
 	}
 	if self.ArraySubCounter != nil {
 		strBuf.WriteString("[ ")
@@ -172,7 +186,6 @@ func main() {
 	if err := resultCursor.Close(); err != nil {
 		panic(err)
 	}
-
 	fmt.Println(dc)
 
 }
